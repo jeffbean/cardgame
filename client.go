@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"net"
 	"os"
@@ -53,6 +54,7 @@ func ChatClientSender(client *ChatClient) {
 		}
 	}
 }
+
 func ChatClientReader(client *ChatClient) {
 	buffer := make([]byte, 2048)
 
@@ -71,8 +73,8 @@ func ChatClientHandler(client *ChatClient) {
 	go ChatClientReader(client)
 }
 
-func runClient(name string) {
-	conn, err := net.Dial("tcp", "127.0.0.1:9988")
+func runClient(name string, host string) {
+	conn, err := net.Dial("tcp", host+":9988")
 	checkError(err)
 	defer conn.Close()
 
@@ -96,4 +98,12 @@ func checkError(err error) {
 	if err != nil {
 		fmt.Println("Fatal error ", err.Error())
 	}
+}
+
+var clientName string
+var serverHost string
+
+func init() {
+	flag.StringVar(&clientName, "name", "foobar", "Name of the client.")
+	flag.StringVar(&serverHost, "h", "127.0.0.1", "Server hostname.")
 }

@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"container/list"
-	"flag"
 	"fmt"
 	"net"
 )
@@ -159,21 +158,5 @@ func runServer() {
 				}
 			}
 		}
-	}
-}
-
-var cardServer bool
-var clientName string
-
-func init() {
-	flag.BoolVar(&cardServer, "server", false, "Run the cardgame server.")
-	flag.StringVar(&clientName, "name", "foobar", "Name of the client.")
-}
-func main() {
-	flag.Parse()
-	if cardServer {
-		runServer()
-	} else {
-		runClient(clientName)
 	}
 }
