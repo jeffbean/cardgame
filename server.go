@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"container/list"
 	"fmt"
+	"github.com/jeffbean/cardgame/deck"
 	"net"
+	"strings"
 )
 
 // Client is the struct for each client
@@ -60,16 +62,26 @@ func (c *Client) RemoveMe() {
 	}
 }
 
+// ClientReader reads the incoming bytes from a client
 func ClientReader(client *Client) {
+	var send string
 	buffer := make([]byte, 2048)
 
 	for client.Read(buffer) {
-		if bytes.Equal(buffer, []byte("/quit")) {
+		send = client.Name + "> "
+		Log("ClientReader received ", client.Name, " -> [", string(buffer), "]")
+		if bytes.HasPrefix(buffer, []byte("/quit")) {
 			client.Close()
 			break
 		}
-		Log("ClientReader received ", client.Name, "> ", string(buffer))
-		send := client.Name + "> " + string(buffer)
+		switch {
+		case bytes.HasPrefix(buffer, []byte("/foo")):
+			send += "Hello you have activated the foo function. Hold on tight."
+			Log("Processing foo function: ", string(buffer))
+			sendClientsHands(client)
+		default:
+			send += string(buffer)
+		}
 		client.Outgoing <- send
 		for i := 0; i < 2048; i++ {
 			buffer[i] = 0x00
@@ -78,6 +90,16 @@ func ClientReader(client *Client) {
 
 	client.Outgoing <- client.Name + " has left chat"
 	Log("ClientReader stopped for ", client.Name)
+}
+
+func sendClientsHands(client *Client) {
+	deck := deck.NewDeck(true)
+	split := deck.NumberOfCards() / client.ClientList.Len()
+	for e := client.ClientList.Front(); e != nil; e = e.Next() {
+		hand := deck.DrawHand(split)
+		client := e.Value.(Client)
+		client.Incoming <- hand.String()
+	}
 }
 
 // ClientSender sends buffers to a clent
@@ -102,6 +124,8 @@ func ClientSender(client *Client) {
 		}
 	}
 }
+
+//ClientHandler handles setting up the sender and reader for each client
 func ClientHandler(conn net.Conn, ch chan string, clientList *list.List) {
 	buffer := make([]byte, 1024)
 	bytesRead, error := conn.Read(buffer)
@@ -109,7 +133,7 @@ func ClientHandler(conn net.Conn, ch chan string, clientList *list.List) {
 		Log("Client connection error: ", error)
 	}
 
-	name := string(buffer[0:bytesRead])
+	name := strings.TrimSpace(string(buffer[0:bytesRead]))
 	newClient := &Client{name, make(chan string), ch, conn, make(chan bool), clientList}
 
 	go ClientSender(newClient)
@@ -118,6 +142,7 @@ func ClientHandler(conn net.Conn, ch chan string, clientList *list.List) {
 	ch <- string(name + " has joined the chat")
 }
 
+// IOHandler sends all input to all clients in the list
 func IOHandler(Incoming <-chan string, clientList *list.List) {
 	for {
 		Log("IOHandler: Waiting for input")
